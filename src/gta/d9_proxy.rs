@@ -50,9 +50,7 @@ pub fn set_proxy(
 ) {
     unsafe {
         let func: CreateDevice = std::mem::transmute(0x807C2B);
-        log::trace!("finding function and hooking ... (d9_proxy::set_proxy)");
         let mut hook = GenericDetour::new(func, hook_direct3d_create9).unwrap();
-        log::trace!("done enable it ... (d9_proxy::set_proxy)");
         hook.enable().unwrap();
 
         ON_CREATE = Some(on_create);
@@ -61,7 +59,6 @@ pub fn set_proxy(
         ON_DESTROY = Some(on_destroy);
 
         DEVICE_HOOK = Some(hook);
-        log::trace!("done ... (d9_proxy::set_proxy)");
     }
 }
 
@@ -72,12 +69,7 @@ pub fn leak<T>(value: T) -> *mut T {
 extern "stdcall" fn hook_direct3d_create9(sdk: u32) -> *mut IDirect3D9 {
     unsafe {
         if let Some(hook) = DEVICE_HOOK.as_mut() {
-            log::trace!("hook_direct3d_create9({})", sdk);
-
             let origin = hook.call(sdk);
-
-            log::trace!("origin ptr: {:#?}", origin);
-
             let table = create_vftable();
 
             let direct = Direct3D {
@@ -95,8 +87,6 @@ extern "stdcall" fn hook_direct3d_create9(sdk: u32) -> *mut IDirect3D9 {
 
 fn delete(obj: *mut Direct3D) {
     unsafe {
-        log::trace!("delete Direct3D object");
-
         let device = Box::from_raw(obj);
         let vftable = Box::from_raw(device.vftable);
         drop(vftable);
@@ -153,10 +143,9 @@ unsafe extern "system" fn AddRef(this: *mut IUnknown) -> ULONG {
 
 unsafe extern "system" fn Release(this: *mut IUnknown) -> ULONG {
     let origin = Direct3D::origin(this as *mut _);
-    origin.AddRef();
     let result = origin.Release();
 
-    if result == 1 {
+    if result == 0 {
         delete(this as *mut Direct3D);
     }
 
@@ -320,8 +309,6 @@ unsafe extern "system" fn CreateDevice(
     pPresentationParameters: *mut D3DPRESENT_PARAMETERS,
     ppReturnedDeviceInterface: *mut *mut IDirect3DDevice9,
 ) -> HRESULT {
-    log::trace!("Direct3D::CreateDevice");
-
     let result = Direct3D::origin(this).CreateDevice(
         Adapter,
         DeviceType,
@@ -333,9 +320,6 @@ unsafe extern "system" fn CreateDevice(
 
     if result == 0 {
         let proxy = Direct3D::restore(this);
-
-        log::trace!("super::device_proxy::set_proxy()");
-
         let device = super::device_proxy::set_proxy(
             *ppReturnedDeviceInterface,
             ON_RENDER,
@@ -344,8 +328,6 @@ unsafe extern "system" fn CreateDevice(
         );
 
         *ppReturnedDeviceInterface = device;
-
-        log::trace!("(proxy.on_create)()");
 
         (proxy.on_create)();
     }
