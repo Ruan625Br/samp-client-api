@@ -5,5 +5,5 @@ edition = "2021"
 
 [dependencies]
 winapi = { version = "0.3.8", features = ["d3d9", "libloaderapi", "winuser", "winver"] }
-retour = "0.3.1"
+retour = { version = "0.3", features = ["thiscall-abi"] }
 log = "0.4.14"
