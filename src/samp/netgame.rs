@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use super::{v037, v037r3, v037r5};
 use super::version::{Version, version};
-use detour::GenericDetour;
+use retour::GenericDetour;
 
 pub struct NetGame<'a> {
     netgame_v1: Option<&'a mut v037::CNetGame>,
